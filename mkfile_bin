@@ -2,6 +2,9 @@ APE=/sys/src/ape
 <$APE/config
 
 TARG=lua 
+
+OFILES=\
+    onelua.$O \
     
 HFILES=\
 	/sys/include/ape/lauxlib.h \

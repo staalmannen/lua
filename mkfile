@@ -5,7 +5,7 @@ LIB=liblua.a
 #compiled in mkfile_bin
 
 OFILES=\
-    onelua$O \
+    onelua.$O \
     
     
 HFILES=\
