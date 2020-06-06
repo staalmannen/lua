@@ -1,8 +1,6 @@
 </$objtype/mkfile
 
 LIB=liblua.a
-#BIN=lua
-#compiled in mkfile_bin
 
 OFILES=\
     onelua.$O \

@@ -20,12 +20,11 @@ UPDATE=\
 
 </sys/src/cmd/mkone
 
+CC=pcc
+LD=pcc
 CFLAGS= -c -I. -D_C99_SNPRINTF_EXTENSION -D_POSIX_SOURCE \
         -D_SUSV2_SOURCE -DLUA_POSIX -DENABLE_CJSON_GLOBAL \
         -DPlan9 -DMAKE_LUA
-
-$O.lua:V: onelua.$O 
-	$LD -o $target $prereq
 	
 install:V:
         cp $O.lua /$objtype/bin/ape/lua
