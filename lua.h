@@ -12,6 +12,9 @@
 #include <stdarg.h>
 #include <stddef.h>
 
+#ifdef Plan9
+#pragma lib "/$M/lib/ape/liblua.a"
+#endif
 
 #include "luaconf.h"
 

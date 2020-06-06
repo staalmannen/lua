@@ -1,0 +1,33 @@
+APE=/sys/src/ape
+<$APE/config
+
+TARG=lua 
+    
+HFILES=\
+	/sys/include/ape/lauxlib.h \
+    /sys/include/ape/lua.h \
+    /sys/include/ape/luaconf.h \
+    /sys/include/ape/lualib.h 
+
+UPDATE=\
+	mkfile\
+	$HFILES\
+	${OFILES:%.$O=%.c}\
+	/$objtype/lib/ape/liblua.a
+
+</sys/src/cmd/mkone
+
+CFLAGS= -c -I. -D_C99_SNPRINTF_EXTENSION -D_POSIX_SOURCE \
+        -D_SUSV2_SOURCE -DLUA_POSIX -DENABLE_CJSON_GLOBAL \
+        -DPlan9 -DMAKE_LUA
+
+$O.lua:V: onelua.$O 
+	$LD -o $target $prereq
+	
+install:V:
+        cp $O.lua /$objtype/bin/ape/lua
+        
+nuke:V:
+        rm -f /$objtype/bin/ape/lua
+        
+
