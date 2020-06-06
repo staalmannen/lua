@@ -4,10 +4,10 @@ APE=/sys/src/ape
 TARG=lua 
 
 OFILES=\
-    onelua.$O \
+    lua.$O \
     
 HFILES=\
-	/sys/include/ape/lauxlib.h \
+    /sys/include/ape/lauxlib.h \
     /sys/include/ape/lua.h \
     /sys/include/ape/luaconf.h \
     /sys/include/ape/lualib.h 
@@ -25,7 +25,7 @@ LD=pcc
 CFLAGS= -c -I. -D_C99_SNPRINTF_EXTENSION -D_POSIX_SOURCE \
         -D_SUSV2_SOURCE -DLUA_POSIX -DENABLE_CJSON_GLOBAL \
         -DPlan9 -DMAKE_LUA
-	
+
 install:V:
         cp $O.lua /$objtype/bin/ape/lua
         
