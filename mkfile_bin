@@ -3,6 +3,8 @@ APE=/sys/src/ape
 
 TARG=lua 
 
+BIN=/$objtype/bin/ape
+
 OFILES=\
     lua.$O \
     
