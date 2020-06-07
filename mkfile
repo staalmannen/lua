@@ -54,7 +54,7 @@ CC=pcc
 LD=pcc
 CFLAGS= -c -I. -D_C99_SNPRINTF_EXTENSION -D_POSIX_SOURCE \
         -D_SUSV2_SOURCE -DLUA_POSIX -DENABLE_CJSON_GLOBAL \
-        -DMAKE_LIB
+        -DMAKE_LIB -DPlan9
 
 %.$O: %.c
     $CC $CFLAGS $stem.c

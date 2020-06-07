@@ -27,7 +27,7 @@ CFLAGS= -c -I. -D_C99_SNPRINTF_EXTENSION -D_POSIX_SOURCE \
         -DPlan9 -DMAKE_LUA
 
 install:V:
-        cp $O.lua /$objtype/bin/ape/lua
+        cp $O.out /$objtype/bin/ape/lua
         
 nuke:V:
         rm -f /$objtype/bin/ape/lua
