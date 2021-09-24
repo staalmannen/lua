@@ -88,6 +88,7 @@ for _, sa in ipairs(sizes) do    -- 'sa' is size of the array part
     arr[1 + sa + sh + 1] = "}"
     local prog = table.concat(arr)
     local f = assert(load(prog))
+    collectgarbage("stop")
     f()    -- call once to ensure stack space
     -- make sure table is not resized after being created
     if sa == 0 or sh == 0 then
@@ -97,6 +98,7 @@ for _, sa in ipairs(sizes) do    -- 'sa' is size of the array part
     end
     local t = f()
     T.alloccount();
+    collectgarbage("restart")
     assert(#t == sa)
     check(t, sa, mp2(sh))
   end
@@ -355,6 +357,38 @@ for k, v in pairs( t ) do
   assert(t[k] == undef)
 end
 assert(n == 5)
+
+
+do
+  print("testing next x GC of deleted keys")
+  -- bug in 5.4.1
+  local co = coroutine.wrap(function (t)
+    for k, v in pairs(t) do
+        local k1 = next(t)    -- all previous keys were deleted
+        assert(k == k1)       -- current key is the first in the table
+        t[k] = nil
+        local expected = (type(k) == "table" and k[1] or
+                          type(k) == "function" and k() or
+                          string.sub(k, 1, 1))
+        assert(expected == v)
+        coroutine.yield(v)
+    end
+  end)
+  local t = {}
+  t[{1}] = 1    -- add several unanchored, collectable keys
+  t[{2}] = 2
+  t[string.rep("a", 50)] = "a"    -- long string
+  t[string.rep("b", 50)] = "b"
+  t[{3}] = 3
+  t[string.rep("c", 10)] = "c"    -- short string
+  t[function () return 10 end] = 10
+  local count = 7
+  while co(t) do
+    collectgarbage("collect")   -- collect dead keys
+    count = count - 1
+  end
+  assert(count == 0 and next(t) == nil)    -- traversed the whole table
+end
 
 
 local function test (a)
@@ -729,5 +763,26 @@ for k,v in ipairs(a) do
   assert(k == i and v == i * 10)
 end
 assert(i == a.n)
+
+
+-- testing yield inside __pairs
+do
+  local t = setmetatable({10, 20, 30}, {__pairs = function (t)
+    local inc = coroutine.yield()
+    return function (t, i)
+             if i > 1 then return i - inc, t[i - inc]  else return nil end
+           end, t, #t + 1
+  end})
+
+  local res = {}
+  local co = coroutine.wrap(function ()
+    for i,p in pairs(t) do res[#res + 1] = p end
+  end)
+
+  co()     -- start coroutine
+  co(1)    -- continue after yield
+  assert(res[1] == 30 and res[2] == 20 and res[3] == 10 and #res == 3)
+  
+end
 
 print"OK"

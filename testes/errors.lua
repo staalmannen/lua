@@ -24,8 +24,9 @@ local function doit (s)
 end
 
 
-local function checkmessage (prog, msg)
+local function checkmessage (prog, msg, debug)
   local m = doit(prog)
+  if debug then print(m, msg) end
   assert(string.find(m, msg, 1, true))
 end
 
@@ -67,6 +68,27 @@ checksyntax([[
 ]], "'}' expected (to close '{' at line 1)", "<eof>", 3)
 
 
+do   -- testing errors in goto/break
+  local function checksyntax (prog, msg, line)
+    local st, err = load(prog)
+    assert(string.find(err, "line " .. line))
+    assert(string.find(err, msg, 1, true))
+  end
+
+  checksyntax([[
+    ::A:: a = 1
+    ::A::
+  ]], "label 'A' already defined", 1)
+
+  checksyntax([[
+    a = 1
+    goto A
+    do ::A:: end
+  ]], "no visible label 'A'", 2)
+
+end
+
+
 if not T then
   (Message or print)
     ('\n >>> testC not active: skipping memory message test <<<\n')
@@ -98,6 +120,17 @@ checkmessage("local a={}; a.bbbb(3)", "field 'bbbb'")
 assert(not string.find(doit"a={13}; local bbbb=1; a[bbbb](3)", "'bbbb'"))
 checkmessage("a={13}; local bbbb=1; a[bbbb](3)", "number")
 checkmessage("a=(1)..{}", "a table value")
+
+-- calls
+checkmessage("local a; a(13)", "local 'a'")
+checkmessage([[
+  local a = setmetatable({}, {__add = 34})
+  a = a + 1
+]], "metamethod 'add'")
+checkmessage([[
+  local a = setmetatable({}, {__lt = {}})
+  a = a > a
+]], "metamethod 'lt'")
 
 -- tail calls
 checkmessage("local a={}; return a.bbbb(3)", "field 'bbbb'")
@@ -158,6 +191,13 @@ checkmessage("a = 24 // 0", "divide by zero")
 checkmessage("a = 1 % 0", "'n%0'")
 
 
+-- type error for an object which is neither in an upvalue nor a register.
+-- The following code will try to index the value 10 that is stored in
+-- the metatable, without moving it to a register.
+checkmessage("local a = setmetatable({}, {__index = 10}).x",
+             "attempt to index a number value")
+
+
 -- numeric for loops
 checkmessage("for i = {}, 10 do end", "table")
 checkmessage("for i = io.stdin, 10 do end", "FILE")
@@ -188,6 +228,22 @@ do   -- named objects (field '__name')
   checkmessage("return {} < XX", "table with My Type")
   checkmessage("return XX < io.stdin", "My Type with FILE*")
   _G.XX = nil
+
+  if T then   -- extra tests for 'luaL_tolstring'
+    -- bug in 5.4.3; 'luaL_tolstring' with negative indices
+    local x = setmetatable({}, {__name="TABLE"})
+    assert(T.testC("Ltolstring -1; return 1", x) == tostring(x))
+
+    local a, b = T.testC("pushint 10; Ltolstring -2; return 2", x)
+    assert(a == 10 and b == tostring(x))
+
+    setmetatable(x, {__tostring=function (o)
+      assert(o == x)
+      return "ABC"
+    end})
+    local a, b, c = T.testC("pushint 10; Ltolstring -2; return 3", x)
+    assert(a == x and b == 10 and c == "ABC")
+  end
 end
 
 -- global functions
@@ -249,7 +305,7 @@ end]], "global 'insert'")
 
 checkmessage([[  -- tail call
   return math.sin("a")
-]], "'sin'")
+]], "sin")
 
 checkmessage([[collectgarbage("nooption")]], "invalid option")
 
@@ -380,31 +436,47 @@ if not b then
   end
 end]], 5)
 
+do
+  -- Force a negative estimate for base line. Error in instruction 2
+  -- (after VARARGPREP, GETGLOBAL), with first absolute line information
+  -- (forced by too many lines) in instruction 0.
+  local s = string.format("%s return __A.x", string.rep("\n", 300))
+  lineerror(s, 301)
+end
+
 
 if not _soft then
   -- several tests that exaust the Lua stack
   collectgarbage()
   print"testing stack overflow"
   C = 0
-  local l = debug.getinfo(1, "l").currentline; function y () C=C+1; y() end
+  -- get line where stack overflow will happen
+  local l = debug.getinfo(1, "l").currentline + 1
+  local function auxy () C=C+1; auxy() end     -- produce a stack overflow
+  function y ()
+    collectgarbage("stop")   -- avoid running finalizers without stack space
+    auxy()
+    collectgarbage("restart")
+  end
 
   local function checkstackmessage (m)
+    print("(expected stack overflow after " .. C .. " calls)")
+    C = 0    -- prepare next count
     return (string.find(m, "stack overflow"))
   end
   -- repeated stack overflows (to check stack recovery)
   assert(checkstackmessage(doit('y()')))
-  print('+')
   assert(checkstackmessage(doit('y()')))
-  print('+')
   assert(checkstackmessage(doit('y()')))
-  print('+')
 
 
   -- error lines in stack overflow
-  C = 0
   local l1
   local function g(x)
-    l1 = debug.getinfo(x, "l").currentline; y()
+    l1 = debug.getinfo(x, "l").currentline + 2
+    collectgarbage("stop")   -- avoid running finalizers without stack space
+    auxy()
+    collectgarbage("restart")
   end
   local _, stackmsg = xpcall(g, debug.traceback, 1)
   print('+')
@@ -530,10 +602,10 @@ local function testrep (init, rep, close, repc, finalresult)
   if (finalresult) then
     assert(res() == finalresult)
   end
-  s = init .. string.rep(rep, 10000)
-  local res, msg = load(s)   -- 10000 levels not ok
-  assert(not res and (string.find(msg, "too many registers") or
-                      string.find(msg, "stack overflow")))
+  s = init .. string.rep(rep, 500)
+  local res, msg = load(s)   -- 500 levels not ok
+  assert(not res and (string.find(msg, "too many") or
+                      string.find(msg, "overflow")))
 end
 
 testrep("local a; a", ",a", "= 1", ",1")    -- multiple assignment

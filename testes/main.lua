@@ -190,6 +190,11 @@ prepfile(("print(a); print(_G['%s'].x)"):format(prog), otherprog)
 RUN('env LUA_PATH="?;;" lua -l %s -l%s -lstring -l io %s > %s', prog, otherprog, otherprog, out)
 checkout("1\n2\n15\n2\n15\n")
 
+-- test explicit global names in -l
+prepfile("print(str.upper'alo alo', m.max(10, 20))")
+RUN("lua -l 'str=string' '-lm=math' -e 'print(m.sin(0))' %s > %s", prog, out)
+checkout("0.0\nALO ALO\t20\n")
+
 -- test 'arg' table
 local a = [[
   assert(#arg == 3 and arg[1] == 'a' and
@@ -286,6 +291,33 @@ a = 2
 RUN([[lua "-e_PROMPT='%s'" -i < %s > %s]], prompt, prog, out)
 local t = getoutput()
 assert(string.find(t, prompt .. ".*" .. prompt .. ".*" .. prompt))
+
+-- using the prompt default
+prepfile[[ --
+a = 2
+]]
+RUN([[lua -i < %s > %s]], prog, out)
+local t = getoutput()
+prompt = "> "    -- the default
+assert(string.find(t, prompt .. ".*" .. prompt .. ".*" .. prompt))
+
+
+-- non-string prompt
+prompt =
+  "local C = 0;\z
+   _PROMPT=setmetatable({},{__tostring = function () \z
+     C = C + 1; return C end})"
+prepfile[[ --
+a = 2
+]]
+RUN([[lua -e "%s" -i < %s > %s]], prompt, prog, out)
+local t = getoutput()
+assert(string.find(t, [[
+1 --
+2a = 2
+3
+]], 1, true))
+
 
 -- test for error objects
 prepfile[[
@@ -393,12 +425,12 @@ if T then   -- test library?
   -- testing 'warn'
   warn("@store")
   warn("@123", "456", "789")
-  assert(_WARN == "@123456789"); _WARN = nil
+  assert(_WARN == "@123456789"); _WARN = false
 
   warn("zip", "", " ", "zap")
-  assert(_WARN == "zip zap"); _WARN = nil
+  assert(_WARN == "zip zap"); _WARN = false
   warn("ZIP", "", " ", "ZAP")
-  assert(_WARN == "ZIP ZAP"); _WARN = nil
+  assert(_WARN == "ZIP ZAP"); _WARN = false
   warn("@normal")
 end
 

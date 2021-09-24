@@ -31,6 +31,7 @@ end
 
 do
   assert(not pcall(debug.getinfo, print, "X"))   -- invalid option
+  assert(not pcall(debug.getinfo, 0, ">"))   -- invalid option
   assert(not debug.getinfo(1000))   -- out of range level
   assert(not debug.getinfo(-1))     -- out of range level
   local a = debug.getinfo(print)
@@ -118,6 +119,16 @@ else
   a=2
 end
 ]], {2,3,4,7})
+
+test([[
+local function foo()
+end
+foo()
+A = 1
+A = 2
+A = 3
+]], {2, 3, 2, 4, 5, 6})
+
 
 test([[--
 if nil then
@@ -813,8 +824,10 @@ assert(a + 30000 == "add" and a - 3.0 == "sub" and a * 3.0 == "mul" and
        -a == "unm" and #a == "len" and a & 3 == "band")
 assert(a|3 == "bor" and 3~a == "bxor" and a<<3 == "shl" and a>>1 == "shr")
 assert (a==b and a.op == "eq")
-assert (a>=b and a.op == "order")
-assert (a>b and a.op == "order")
+assert (a>=b and a.op == "le")
+assert ("x">=a and a.op == "le")
+assert (a>b and a.op == "lt")
+assert (a>10 and a.op == "lt")
 assert(~a == "bnot")
 
 do   -- testing for-iterator name
@@ -884,7 +897,7 @@ end
 
 
 print("testing debug functions on chunk without debug info")
-prog = [[-- program to be loaded without debug information
+prog = [[-- program to be loaded without debug information (strip)
 local debug = require'debug'
 local a = 12  -- a local variable
 
@@ -926,6 +939,23 @@ return a
 local f = assert(load(string.dump(load(prog), true)))
 
 assert(f() == 13)
+
+do   -- bug in 5.4.0: line hooks in stripped code
+  local function foo ()
+    local a = 1
+    local b = 2
+    return b
+  end
+
+  local s = load(string.dump(foo, true))
+  local line = true
+  debug.sethook(function (e, l)
+    assert(e == "line")
+    line = l
+  end, "l")
+  assert(s() == 2); debug.sethook(nil)
+  assert(line == nil)  -- hook called withoug debug info for 1st instruction
+end
 
 do   -- tests for 'source' in binary dumps
   local prog = [[
