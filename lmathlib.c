@@ -21,13 +21,6 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
-#ifdef Plan9
-double log2(double x) {
-    return log(x)/log(2);
-}
-#endif
-
-
 #undef PI
 #define PI	(l_mathop(3.141592653589793238462643383279502884))
 
