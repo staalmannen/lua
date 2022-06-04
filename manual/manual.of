@@ -787,11 +787,8 @@ following the reverse order that they were marked.
 If any finalizer marks objects for collection during that phase,
 these marks have no effect.
 
-Finalizers cannot yield.
-Except for that, they can do anything,
-such as raise errors, create new objects,
-or even run the garbage collector.
-However, because they can run in unpredictable times,
+Finalizers cannot yield nor run the garbage collector.
+Because they can run in unpredictable times,
 it is good practice to restrict each finalizer
 to the minimum necessary to properly release
 its associated resource.
@@ -1346,8 +1343,10 @@ then all values returned by that call enter the list of values,
 before the adjustment
 (except when the call is enclosed in parentheses; see @See{expressions}).
 
-The assignment statement first evaluates all its expressions
-and only then the assignments are performed.
+If a variable is both assigned and read
+inside a multiple assignment,
+Lua ensures all reads get the value of the variable
+before the assignment.
 Thus the code
 @verbatim{
 i = 3
@@ -1366,6 +1365,12 @@ and
 x, y, z = y, z, x
 }
 cyclically permutes the values of @id{x}, @id{y}, and @id{z}.
+
+Note that this guarantee covers only accesses
+syntactically inside the assignment statement.
+If a function or a metamethod called during the assignment
+changes the value of a variable,
+Lua gives no guarantees about the order of that access.
 
 An assignment to a global name @T{x = val}
 is equivalent to the assignment
@@ -1975,15 +1980,20 @@ character is one byte.)
 
 The length operator applied on a table
 returns a @x{border} in that table.
-A @def{border} in a table @id{t} is any natural number
+A @def{border} in a table @id{t} is any non-negative integer
 that satisfies the following condition:
 @verbatim{
-(border == 0 or t[border] ~= nil) and t[border + 1] == nil
+(border == 0 or t[border] ~= nil) and
+(t[border + 1] == nil or border == math.maxinteger)
 }
 In words,
-a border is any (natural) index present in the table
-that is followed by an absent index
-(or zero, when index 1 is absent).
+a border is any positive integer index present in the table
+that is followed by an absent index,
+plus two limit cases:
+zero, when index 1 is absent;
+and the maximum value for an integer, when that index is present.
+Note that keys that are not positive integers
+do not interfere with borders.
 
 A table with exactly one border is called a @def{sequence}.
 For instance, the table @T{{10, 20, 30, 40, 50}} is a sequence,
@@ -1992,12 +2002,9 @@ The table @T{{10, 20, 30, nil, 50}} has two borders (3 and 5),
 and therefore it is not a sequence.
 (The @nil at index 4 is called a @emphx{hole}.)
 The table @T{{nil, 20, 30, nil, nil, 60, nil}}
-has three borders (0, 3, and 6) and three holes
-(at indices 1, 4, and 5),
+has three borders (0, 3, and 6),
 so it is not a sequence, too.
 The table @T{{}} is a sequence with border 0.
-Note that non-natural keys do not interfere
-with whether a table is a sequence.
 
 When @id{t} is a sequence,
 @T{#t} returns its only border,
@@ -2011,7 +2018,7 @@ the memory addresses of its non-numeric keys.)
 
 The computation of the length of a table
 has a guaranteed worst time of @M{O(log n)},
-where @M{n} is the largest natural key in the table.
+where @M{n} is the largest integer key in the table.
 
 A program can modify the behavior of the length operator for
 any value but strings through the @idx{__len} metamethod @see{metatable}.
@@ -2514,7 +2521,7 @@ In general,
 Lua's garbage collection can free or move internal memory
 and then invalidate pointers to internal strings.
 To allow a safe use of these pointers,
-The API guarantees that any pointer to a string in a stack index
+the API guarantees that any pointer to a string in a stack index
 is valid while the string value at that index is not removed from the stack.
 (It can be moved to another index, though.)
 When the index is a pseudo-index (referring to an upvalue),
@@ -3268,6 +3275,8 @@ Returns the previous mode (@id{LUA_GCGEN} or @id{LUA_GCINC}).
 For more details about these options,
 see @Lid{collectgarbage}.
 
+This function should not be called by a finalizer.
+
 }
 
 @APIEntry{lua_Alloc lua_getallocf (lua_State *L, void **ud);|
@@ -3972,6 +3981,7 @@ Also @N{returns 0} if any of the indices are not valid.
 
 Similar to @Lid{lua_gettable}, but does a raw access
 (i.e., without metamethods).
+The value at @id{index} must be a table.
 
 }
 
@@ -4018,6 +4028,7 @@ For other values, this call @N{returns 0}.
 
 Similar to @Lid{lua_settable}, but does a raw assignment
 (i.e., without metamethods).
+The value at @id{index} must be a table.
 
 }
 
@@ -5338,7 +5349,7 @@ Equivalent to the sequence
 @APIEntry{void luaL_buffsub (luaL_Buffer *B, int n);|
 @apii{?,?,-}
 
-Removes @id{n} bytes from the the buffer @id{B}
+Removes @id{n} bytes from the buffer @id{B}
 @seeC{luaL_Buffer}.
 The buffer must have at least that many bytes.
 
@@ -6225,6 +6236,8 @@ A zero means to not change that value.
 See @See{GC} for more details about garbage collection
 and some of these options.
 
+This function should not be called by a finalizer.
+
 }
 
 @LibEntry{dofile ([filename])|
@@ -6239,7 +6252,7 @@ to its caller.
 }
 
 @LibEntry{error (message [, level])|
-Raises an error @see{error} with @{message} as the error object.
+Raises an error @see{error} with @id{message} as the error object.
 This function never returns.
 
 Usually, @id{error} adds some information about the error position
@@ -7269,7 +7282,7 @@ according to the format string @id{fmt} @see{pack}.
 
 @LibEntry{string.packsize (fmt)|
 
-Returns the size of a string resulting from @Lid{string.pack}
+Returns the length of a string resulting from @Lid{string.pack}
 with the given format.
 The format string cannot have the variable-length options
 @Char{s} or @Char{z} @see{pack}.

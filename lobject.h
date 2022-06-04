@@ -52,6 +52,8 @@ typedef union Value {
   lua_CFunction f; /* light C functions */
   lua_Integer i;   /* integer numbers */
   lua_Number n;    /* float numbers */
+  /* not used, but may avoid warnings for uninitialized value */
+  lu_byte ub;
 } Value;
 
 
@@ -68,7 +70,7 @@ typedef struct TValue {
 
 
 #define val_(o)		((o)->value_)
-#define valraw(o)	(&val_(o))
+#define valraw(o)	(val_(o))
 
 
 /* raw type tag of a TValue */
