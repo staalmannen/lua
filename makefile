@@ -8,7 +8,6 @@ CWARNSCPP= \
 	-Wfatal-errors \
 	-Wextra \
 	-Wshadow \
-	-Wsign-compare \
 	-Wundef \
 	-Wwrite-strings \
 	-Wredundant-decls \
@@ -57,8 +56,13 @@ CWARNS= $(CWARNSCPP) $(CWARNSC) $(CWARNGCC)
 
 # -pg -malign-double
 # -DLUA_USE_CTYPE -DLUA_USE_APICHECK
-# ('-ftrapv' for runtime checks of integer overflows)
-# -fsanitize=undefined -ftrapv -fno-inline
+
+# The following options help detect "undefined behavior"s that seldom
+# create problems; some are only available in newer gcc versions. To
+# use some of them, we also have to define an environment variable
+# ASAN_OPTIONS="detect_invalid_pointer_pairs=2".
+# -fsanitize=undefined
+# -fsanitize=pointer-subtract -fsanitize=address -fsanitize=pointer-compare
 # TESTS= -DLUA_USER_H='"ltests.h"' -O0 -g
 
 
