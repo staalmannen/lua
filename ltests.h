@@ -64,7 +64,6 @@ LUA_API Memcontrol l_memcontrol;
 extern void *l_Trick;
 
 
-
 /*
 ** Function to traverse and check all memory used by Lua
 */
@@ -75,6 +74,11 @@ LUAI_FUNC int lua_checkmemory (lua_State *L);
 */
 struct GCObject;
 LUAI_FUNC void lua_printobj (lua_State *L, struct GCObject *o);
+
+/*
+** Function to print the stack
+*/
+LUAI_FUNC void lua_printstack (lua_State *L);
 
 
 /* test for lock/unlock */
@@ -102,9 +106,10 @@ LUA_API void *debug_realloc (void *ud, void *block,
                              size_t osize, size_t nsize);
 
 #if defined(lua_c)
-#define luaL_newstate()		lua_newstate(debug_realloc, &l_memcontrol)
-#define luaL_openlibs(L)  \
-  { (luaL_openlibs)(L); \
+#define luaL_newstate()  \
+	lua_newstate(debug_realloc, &l_memcontrol, luaL_makeseed(NULL))
+#define luai_openlibs(L)  \
+  {  luaL_openlibs(L); \
      luaL_requiref(L, "T", luaB_opentests, 1); \
      lua_pop(L, 1); }
 #endif
